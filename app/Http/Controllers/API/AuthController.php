@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
@@ -19,9 +20,10 @@ class AuthController extends Controller
         ]);
 
         $role = 'user';
-        // contoh: kalau request punya kode_admin yang cocok, set role admin
-        if(!empty($data['kode_admin']) && $data['kode_admin'] === env('KODE_ADMIN', 'RAHASIA2025')){
-            $role = 'admin';
+        if ($data['kode_admin'] ?? null) {
+            if ($data['kode_admin'] === env('KODE_ADMIN','ADMIN123')) {
+                $role = 'admin';
+            }
         }
 
         $user = User::create([
@@ -33,22 +35,24 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
-        return response()->json(['user'=>$user,'token'=>$token], 201);
+        return response()->json(['user'=>$user,'token'=>$token],201);
     }
 
     public function login(Request $request)
     {
         $request->validate(['email'=>'required|email','password'=>'required']);
-        $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages(['email' => ['The provided credentials are incorrect.']]);
+        $user = User::where('email',$request->email)->first();
+
+        if (!$user || !Hash::check($request->password,$user->password)) {
+            throw ValidationException::withMessages([
+                'email'=>['Credensial salah.']
+            ]);
         }
 
-        // delete existing tokens if perlu
         $user->tokens()->delete();
-
         $token = $user->createToken('api-token')->plainTextToken;
+
         return response()->json(['user'=>$user,'token'=>$token]);
     }
 

@@ -79,7 +79,7 @@ class CourseController extends Controller
             $course = Course::findOrFail($id);
 
             $data = $request->validate([
-                'title'=>'sometimes|required|string',
+                'title'=>'nullable|string',
                 'category'=>'nullable|string',
                 'description'=>'nullable|string',
                 'thumbnail'=>'nullable|image|max:2048'

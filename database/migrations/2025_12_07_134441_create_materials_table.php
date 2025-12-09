@@ -15,15 +15,13 @@ return new class extends Migration
         $table->id();
         $table->foreignId('course_id')->constrained('courses')->onDelete('cascade');
         $table->string('title');
-        $table->text('description');
-        $table->string('content_url')->nullable();
+        $table->text('content')->nullable();   // ganti description
+        $table->string('image')->nullable();   // ganti content_url
+        $table->integer('order')->nullable();  // tambahan
         $table->timestamps();
     });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('materials');

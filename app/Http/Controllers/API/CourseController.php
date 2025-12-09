@@ -39,7 +39,9 @@ class CourseController extends Controller
             $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
         }
 
-        return Course::create($data);
+         Course::create($data);
+         return response()->json(['message'=>'Course created'],201);
+
     }
 
     public function update(Request $request, $id)

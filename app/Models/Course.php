@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Course extends Model
 {
-    protected $fillable = ['title','category','description','thumbnail'];
+    protected $fillable = ['title','category','description','thumbnail','created_by'];
 
     public function materials()
     {

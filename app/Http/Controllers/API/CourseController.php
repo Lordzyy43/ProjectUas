@@ -6,72 +6,124 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Course;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Exception;
 
 class CourseController extends Controller
 {
     public function index()
     {
-        return Course::withCount('materials')->paginate(12);
+        try {
+            return Course::withCount('materials')->paginate(12);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'Gagal memuat data course',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function show($id)
     {
-        return Course::with('materials')->findOrFail($id);
+        try {
+            return Course::with('materials')->findOrFail($id);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Terjadi kesalahan'], 500);
+        }
     }
 
     public function materials($id)
     {
-        $course = Course::with('materials')->findOrFail($id);
-        return $course->materials;
+        try {
+            $course = Course::with('materials')->findOrFail($id);
+            return $course->materials;
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+        } catch (Exception $e) {
+            return response()->json(['error' => 'Terjadi kesalahan'], 500);
+        }
     }
 
     // ADMIN
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'title'=>'required|string',
-            'category'=>'nullable|string',
-            'description'=>'nullable|string',
-            'thumbnail'=>'nullable|image|max:2048'
-        ]);
+        try {
+            $data = $request->validate([
+                'title'=>'required|string',
+                'category'=>'nullable|string',
+                'description'=>'nullable|string',
+                'thumbnail'=>'nullable|image|max:2048'
+            ]);
 
-        if ($request->hasFile('thumbnail')) {
-            $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+            if ($request->hasFile('thumbnail')) {
+                $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+            }
+            $data['created_by'] = auth()->id();
+            Course::create($data);
+
+            return response()->json(['message'=>'Course created'], 201);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'Gagal membuat course',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        return Course::create($data);
     }
 
     public function update(Request $request, $id)
     {
-        $course = Course::findOrFail($id);
+        try {
+            $course = Course::findOrFail($id);
 
-        $data = $request->validate([
-            'title'=>'sometimes|required|string',
-            'category'=>'nullable|string',
-            'description'=>'nullable|string',
-            'thumbnail'=>'nullable|image|max:2048'
-        ]);
+            $data = $request->validate([
+                'title'=>'sometimes|required|string',
+                'category'=>'nullable|string',
+                'description'=>'nullable|string',
+                'thumbnail'=>'nullable|image|max:2048'
+            ]);
 
-        if ($request->hasFile('thumbnail')) {
-            if ($course->thumbnail) Storage::disk('public')->delete($course->thumbnail);
-            $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+            if ($request->hasFile('thumbnail')) {
+                if ($course->thumbnail) Storage::disk('public')->delete($course->thumbnail);
+                $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+            }
+
+            $course->update($data);
+
+            return response()->json(['message'=>'Course updated', 'data'=>$course]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'Gagal update course',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $course->update($data);
-        return $course;
     }
 
     public function destroy($id)
     {
-        $course = Course::findOrFail($id);
+        try {
+            $course = Course::findOrFail($id);
 
-        if ($course->thumbnail) {
-            Storage::disk('public')->delete($course->thumbnail);
+            if ($course->thumbnail) {
+                Storage::disk('public')->delete($course->thumbnail);
+            }
+
+            $course->delete();
+
+            return response()->json(['message'=>'Course deleted']);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'Gagal menghapus course',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        $course->delete();
-
-        return response()->json(['message'=>'Course deleted']);
     }
 }

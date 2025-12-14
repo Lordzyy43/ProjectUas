@@ -5,35 +5,119 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\QuizQuestion;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
+use Exception;
 
 class QuizQuestionController extends Controller
 {
     public function store(Request $request, $quiz_id)
     {
-        $data = $request->validate([
-            'question'=>'required',
-            'option_a'=>'required',
-            'option_b'=>'required',
-            'option_c'=>'nullable',
-            'option_d'=>'nullable',
-            'correct_answer'=>'required|in:a,b,c,d'
-        ]);
+        try {
+            $data = $request->validate([
+                'question' => 'required|string',
+                'option_a' => 'required|string',
+                'option_b' => 'required|string',
+                'option_c' => 'nullable|string',
+                'option_d' => 'nullable|string',
+                'correct_answer' => 'required|in:a,b,c,d'
+            ]);
 
-        $data['quiz_id'] = $quiz_id;
+            $data['quiz_id'] = $quiz_id;
 
-        return QuizQuestion::create($data);
+            $question = QuizQuestion::create($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Soal quiz berhasil ditambahkan',
+                'data' => $question
+            ], 201);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal menambahkan soal quiz',
+                'message' => 'Terjadi kesalahan pada database saat menyimpan soal'
+            ], 500);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal menambahkan soal quiz',
+                'message' => 'Terjadi kesalahan saat memproses data soal'
+            ], 500);
+        }
     }
 
     public function update(Request $request, $id)
     {
-        $q = QuizQuestion::findOrFail($id);
-        $q->update($request->all());
-        return $q;
+        try {
+            $question = QuizQuestion::findOrFail($id);
+
+            $data = $request->validate([
+                'question' => 'sometimes|required|string',
+                'option_a' => 'sometimes|required|string',
+                'option_b' => 'sometimes|required|string',
+                'option_c' => 'nullable|string',
+                'option_d' => 'nullable|string',
+                'correct_answer' => 'sometimes|required|in:a,b,c,d'
+            ]);
+
+            $question->update($data);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Soal quiz berhasil diperbarui',
+                'data' => $question
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Soal quiz tidak ditemukan',
+                'message' => 'ID soal quiz tidak valid'
+            ], 404);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal memperbarui soal quiz',
+                'message' => 'Terjadi kesalahan pada database saat update soal'
+            ], 500);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal memperbarui soal quiz',
+                'message' => 'Terjadi kesalahan saat memperbarui soal quiz'
+            ], 500);
+        }
     }
 
     public function destroy($id)
     {
-        QuizQuestion::findOrFail($id)->delete();
-        return response()->json(['message'=>'deleted']);
+        try {
+            $question = QuizQuestion::findOrFail($id);
+            $question->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Soal quiz berhasil dihapus'
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Soal quiz tidak ditemukan',
+                'message' => 'Soal quiz dengan ID tersebut tidak ada'
+            ], 404);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal menghapus soal quiz',
+                'message' => 'Terjadi kesalahan saat menghapus soal quiz'
+            ], 500);
+        }
     }
 }

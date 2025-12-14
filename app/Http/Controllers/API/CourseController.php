@@ -14,11 +14,15 @@ class CourseController extends Controller
     public function index()
     {
         try {
-            return Course::withCount('materials')->paginate(12);
+            return response()->json([
+                'success' => true,
+                'data' => Course::withCount('materials')->paginate(12)
+            ]);
         } catch (Exception $e) {
             return response()->json([
-                'error' => 'Gagal memuat data course',
-                'message' => $e->getMessage()
+                'success' => false,
+                'error' => 'Gagal memuat daftar course',
+                'message' => 'Terjadi kesalahan saat mengambil data course'
             ], 500);
         }
     }
@@ -26,11 +30,22 @@ class CourseController extends Controller
     public function show($id)
     {
         try {
-            return Course::with('materials')->findOrFail($id);
+            return response()->json([
+                'success' => true,
+                'data' => Course::with('materials')->findOrFail($id)
+            ]);
         } catch (ModelNotFoundException $e) {
-            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'error' => 'Course tidak ditemukan',
+                'message' => 'Course dengan ID tersebut tidak tersedia'
+            ], 404);
         } catch (Exception $e) {
-            return response()->json(['error' => 'Terjadi kesalahan'], 500);
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal memuat detail course',
+                'message' => 'Terjadi kesalahan saat mengambil detail course'
+            ], 500);
         }
     }
 
@@ -38,11 +53,22 @@ class CourseController extends Controller
     {
         try {
             $course = Course::with('materials')->findOrFail($id);
-            return $course->materials;
+            return response()->json([
+                'success' => true,
+                'data' => $course->materials
+            ]);
         } catch (ModelNotFoundException $e) {
-            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'error' => 'Course tidak ditemukan',
+                'message' => 'Tidak dapat menampilkan materi karena course tidak tersedia'
+            ], 404);
         } catch (Exception $e) {
-            return response()->json(['error' => 'Terjadi kesalahan'], 500);
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal memuat materi course',
+                'message' => 'Terjadi kesalahan saat mengambil daftar materi'
+            ], 500);
         }
     }
 
@@ -58,17 +84,23 @@ class CourseController extends Controller
             ]);
 
             if ($request->hasFile('thumbnail')) {
-                $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+                $data['thumbnail'] = $request->file('thumbnail')
+                    ->store('course-thumbnails','public');
             }
+
             $data['created_by'] = auth()->id();
             Course::create($data);
 
-            return response()->json(['message'=>'Course created'], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Course berhasil dibuat'
+            ], 201);
 
         } catch (Exception $e) {
             return response()->json([
+                'success' => false,
                 'error' => 'Gagal membuat course',
-                'message' => $e->getMessage()
+                'message' => 'Periksa kembali data input atau konfigurasi database'
             ], 500);
         }
     }
@@ -86,20 +118,32 @@ class CourseController extends Controller
             ]);
 
             if ($request->hasFile('thumbnail')) {
-                if ($course->thumbnail) Storage::disk('public')->delete($course->thumbnail);
-                $data['thumbnail'] = $request->file('thumbnail')->store('course-thumbnails','public');
+                if ($course->thumbnail) {
+                    Storage::disk('public')->delete($course->thumbnail);
+                }
+                $data['thumbnail'] = $request->file('thumbnail')
+                    ->store('course-thumbnails','public');
             }
 
             $course->update($data);
 
-            return response()->json(['message'=>'Course updated', 'data'=>$course]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Course berhasil diperbarui',
+                'data' => $course
+            ]);
 
         } catch (ModelNotFoundException $e) {
-            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'error' => 'Course tidak ditemukan',
+                'message' => 'Tidak dapat memperbarui course karena ID tidak valid'
+            ], 404);
         } catch (Exception $e) {
             return response()->json([
-                'error' => 'Gagal update course',
-                'message' => $e->getMessage()
+                'success' => false,
+                'error' => 'Gagal memperbarui course',
+                'message' => 'Terjadi kesalahan saat menyimpan perubahan course'
             ], 500);
         }
     }
@@ -115,14 +159,22 @@ class CourseController extends Controller
 
             $course->delete();
 
-            return response()->json(['message'=>'Course deleted']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Course berhasil dihapus'
+            ]);
 
         } catch (ModelNotFoundException $e) {
-            return response()->json(['error' => 'Course tidak ditemukan'], 404);
+            return response()->json([
+                'success' => false,
+                'error' => 'Course tidak ditemukan',
+                'message' => 'Tidak dapat menghapus course karena ID tidak valid'
+            ], 404);
         } catch (Exception $e) {
             return response()->json([
+                'success' => false,
                 'error' => 'Gagal menghapus course',
-                'message' => $e->getMessage()
+                'message' => 'Terjadi kesalahan saat menghapus data course'
             ], 500);
         }
     }

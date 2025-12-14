@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Material;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
+use Exception;
 
 class MaterialController extends Controller
 {
@@ -22,24 +24,30 @@ class MaterialController extends Controller
             ]);
 
             if ($request->hasFile('image')) {
-                $data['image'] = $request->file('image')->store('materials','public');
+                $data['image'] = $request->file('image')
+                    ->store('materials','public');
             }
 
             $material = Material::create($data);
-            return response()->json(['message' => 'Material created', 'data' => $material], 201);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material berhasil ditambahkan',
+                'data' => $material
+            ], 201);
 
         } catch (QueryException $e) {
-            // Menangkap error database, misal field required tidak ada
             return response()->json([
-                'error' => 'Gagal membuat material',
-                'message' => $e->getMessage()
+                'success' => false,
+                'error' => 'Gagal menambahkan material',
+                'message' => 'Terjadi kesalahan pada database saat menyimpan material'
             ], 500);
 
-        } catch (\Exception $e) {
-            // Menangkap error umum lainnya
+        } catch (Exception $e) {
             return response()->json([
-                'error' => 'Terjadi kesalahan',
-                'message' => $e->getMessage()
+                'success' => false,
+                'error' => 'Gagal menambahkan material',
+                'message' => 'Periksa kembali data input material'
             ], 500);
         }
     }
@@ -57,23 +65,40 @@ class MaterialController extends Controller
             ]);
 
             if ($request->hasFile('image')) {
-                if ($material->image) Storage::disk('public')->delete($material->image);
-                $data['image'] = $request->file('image')->store('materials','public');
+                if ($material->image) {
+                    Storage::disk('public')->delete($material->image);
+                }
+                $data['image'] = $request->file('image')
+                    ->store('materials','public');
             }
 
             $material->update($data);
-            return response()->json(['message' => 'Material updated', 'data' => $material]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Material berhasil diperbarui',
+                'data' => $material
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Material tidak ditemukan',
+                'message' => 'Tidak dapat memperbarui material karena ID tidak valid'
+            ], 404);
 
         } catch (QueryException $e) {
             return response()->json([
+                'success' => false,
                 'error' => 'Gagal memperbarui material',
-                'message' => $e->getMessage()
+                'message' => 'Terjadi kesalahan pada database saat menyimpan perubahan'
             ], 500);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return response()->json([
-                'error' => 'Terjadi kesalahan',
-                'message' => $e->getMessage()
+                'success' => false,
+                'error' => 'Gagal memperbarui material',
+                'message' => 'Periksa kembali data yang dikirim'
             ], 500);
         }
     }
@@ -82,14 +107,30 @@ class MaterialController extends Controller
     {
         try {
             $material = Material::findOrFail($id);
-            if ($material->image) Storage::disk('public')->delete($material->image);
-            $material->delete();
-            return response()->json(['message'=>'Material deleted']);
 
-        } catch (\Exception $e) {
+            if ($material->image) {
+                Storage::disk('public')->delete($material->image);
+            }
+
+            $material->delete();
+
             return response()->json([
+                'success' => true,
+                'message' => 'Material berhasil dihapus'
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Material tidak ditemukan',
+                'message' => 'Tidak dapat menghapus material karena ID tidak valid'
+            ], 404);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
                 'error' => 'Gagal menghapus material',
-                'message' => $e->getMessage()
+                'message' => 'Terjadi kesalahan saat menghapus data material'
             ], 500);
         }
     }

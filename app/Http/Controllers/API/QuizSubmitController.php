@@ -4,83 +4,77 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Quiz;
 use App\Models\UserQuizResult;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
 use Exception;
 
 class QuizSubmitController extends Controller
 {
-    public function submit(Request $request, $id)
+    public function submit(Request $request, $quizId)
     {
         try {
+            $user = Auth::user();
+
+            // pastikan quiz ada + ambil soal
+            $quiz = Quiz::with('questions')->findOrFail($quizId);
+
+            // cegah submit ulang
+            $alreadySubmitted = UserQuizResult::where('user_id', $user->id)
+                ->where('quiz_id', $quizId)
+                ->exists();
+
+            if ($alreadySubmitted) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Quiz sudah pernah dikerjakan'
+                ], 400);
+            }
+
+            // validasi input
             $data = $request->validate([
                 'answers' => 'required|array'
             ]);
 
-            $quiz = Quiz::with('questions')->findOrFail($id);
-
-            if ($quiz->questions->count() === 0) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Quiz tidak memiliki soal',
-                    'message' => 'Quiz ini belum memiliki pertanyaan'
-                ], 400);
-            }
-
-            $answers = $data['answers'];
             $correct = 0;
+            $total = $quiz->questions->count();
 
-            foreach ($quiz->questions as $q) {
+            foreach ($quiz->questions as $question) {
                 if (
-                    isset($answers[$q->id]) &&
-                    $answers[$q->id] === $q->correct_answer
+                    isset($data['answers'][$question->id]) &&
+                    $data['answers'][$question->id] === $question->correct_option
                 ) {
                     $correct++;
                 }
             }
 
-            $total = $quiz->questions->count();
-            $score = intval(($correct / $total) * 100);
+            // hitung skor (0 - 100)
+            $score = $total > 0 ? intval(($correct / $total) * 100) : 0;
 
+            // simpan hasil (SATU CARA, JELAS)
             $result = UserQuizResult::create([
-                'user_id' => $request->user()->id,
-                'quiz_id' => $quiz->id,
+                'user_id' => $user->id,
+                'quiz_id' => $quizId,
                 'score' => $score,
-                'answers' => $answers
+                'correct_count' => $correct,
+                'total_questions' => $total
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Quiz berhasil disubmit',
                 'data' => [
-                    'score' => $score,
-                    'correct' => $correct,
-                    'total' => $total,
-                    'result_id' => $result->id
+                    'result_id' => $result->id,
+                    'total_questions' => $total,
+                    'correct_answers' => $correct,
+                    'score' => $score
                 ]
             ]);
-
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Quiz tidak ditemukan',
-                'message' => 'ID quiz tidak valid'
-            ], 404);
-
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal menyimpan hasil quiz',
-                'message' => 'Terjadi kesalahan pada database saat menyimpan hasil'
-            ], 500);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal submit quiz',
-                'message' => 'Terjadi kesalahan saat memproses jawaban quiz'
+                'error' => 'Gagal submit quiz'
             ], 500);
         }
     }

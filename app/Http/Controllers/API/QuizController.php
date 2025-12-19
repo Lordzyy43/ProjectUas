@@ -11,10 +11,18 @@ use Exception;
 
 class QuizController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $quizzes = Quiz::with('category')->paginate(10);
+            $query = Quiz::with(['category', 'course']);
+
+            // filter by category (opsional)
+            if ($request->has('category_id')) {
+                $query->where('quiz_category_id', $request->category_id);
+            }
+
+            // paginate agar tidak terlalu berat saat banyak data
+            $quizzes = $query->paginate(10);
 
             return response()->json([
                 'success' => true,
@@ -34,7 +42,7 @@ class QuizController extends Controller
     public function show($id)
     {
         try {
-            $quiz = Quiz::with('questions')->findOrFail($id);
+            $quiz = Quiz::with(['category', 'questions', 'course'])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -63,7 +71,8 @@ class QuizController extends Controller
     {
         try {
             $data = $request->validate([
-                'category_id'=>'required|exists:quiz_categories,id',
+                'course_id'=>'required|exists:courses,id',
+                'quiz_category_id'=>'required|exists:quiz_categories,id',
                 'title'=>'required|string',
                 'description'=>'nullable|string',
                 'time_limit_minutes'=>'nullable|integer'
@@ -99,7 +108,8 @@ class QuizController extends Controller
             $quiz = Quiz::findOrFail($id);
 
             $data = $request->validate([
-                'category_id'=>'sometimes|required|exists:quiz_categories,id',
+                'course_id'=>'sometimes|required|exists:courses,id',
+                'quiz_category_id'=>'sometimes|required|exists:quiz_categories,id',
                 'title'=>'sometimes|required|string',
                 'description'=>'nullable|string',
                 'time_limit_minutes'=>'nullable|integer'

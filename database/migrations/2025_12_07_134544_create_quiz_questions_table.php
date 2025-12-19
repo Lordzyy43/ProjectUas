@@ -11,17 +11,21 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('questions', function (Blueprint $table) {
+        Schema::create('quiz_questions', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('quiz_id')->constrained('quizzes')->onDelete('cascade');
+        $table->foreignId('quiz_id')
+            ->constrained('quizzes')
+            ->cascadeOnDelete();
+
         $table->text('question_text');
         $table->string('option_a');
         $table->string('option_b');
-        $table->string('option_c');
-        $table->string('option_d');
-        $table->string('correct_answer');
+        $table->string('option_c')->nullable();
+        $table->string('option_d')->nullable();
+        $table->enum('correct_answer', ['a','b','c','d']);
         $table->timestamps();
-    });
+});
+
     }
 
     /**

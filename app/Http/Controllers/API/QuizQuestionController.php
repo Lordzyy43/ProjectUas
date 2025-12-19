@@ -11,11 +11,33 @@ use Exception;
 
 class QuizQuestionController extends Controller
 {
+    public function index($quiz_id)
+    {
+        try {
+            $questions = QuizQuestion::where('quiz_id', $quiz_id)->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Daftar soal quiz berhasil diambil',
+                'data' => $questions
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal mengambil daftar soal quiz',
+                'message' => 'Terjadi kesalahan saat mengambil data soal quiz'
+            ], 500);
+        }
+    }
+
+
     public function store(Request $request, $quiz_id)
     {
         try {
             $data = $request->validate([
-                'question' => 'required|string',
+                'quiz_id' => 'exists:quizzes,id',
+                'question_text' => 'required|string',
                 'option_a' => 'required|string',
                 'option_b' => 'required|string',
                 'option_c' => 'nullable|string',
@@ -37,7 +59,7 @@ class QuizQuestionController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal menambahkan soal quiz',
-                'message' => 'Terjadi kesalahan pada database saat menyimpan soal'
+                'message' => $e->getMessage()
             ], 500);
 
         } catch (Exception $e) {
@@ -55,7 +77,8 @@ class QuizQuestionController extends Controller
             $question = QuizQuestion::findOrFail($id);
 
             $data = $request->validate([
-                'question' => 'sometimes|required|string',
+                'quiz_id' => 'sometimes|required|exists:quizzes,id',
+                'question_text' => 'sometimes|required|string',
                 'option_a' => 'sometimes|required|string',
                 'option_b' => 'sometimes|required|string',
                 'option_c' => 'nullable|string',

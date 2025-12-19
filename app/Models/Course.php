@@ -9,13 +9,18 @@ class Course extends Model
     protected $fillable = ['title','category','description','thumbnail','created_by'];
 
     public function materials()
-    {
-        return $this->hasMany(Material::class);
-    }
+        {
+            return $this->hasMany(Material::class);
+        }
 
-    public function enrollments()
-    {
-        return $this->hasMany(Enrollment::class);
-    }
+        public function quizzes()
+        {
+            return $this->hasMany(Quiz::class);
+        }
+
+        public function enrollments()
+        {
+            return $this->hasMany(Enrollment::class);
+        }
 }
 

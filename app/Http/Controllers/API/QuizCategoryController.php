@@ -5,41 +5,35 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\QuizCategory;
 use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
+use Illuminate\Support\Str;
 use Exception;
 
 class QuizCategoryController extends Controller
 {
-    // PUBLIC
+    /**
+     * Ambil semua kategori quiz (public / user)
+     */
     public function index()
     {
-        try {
-            $categories = QuizCategory::all();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Data kategori quiz berhasil diambil',
-                'data' => $categories
-            ]);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal mengambil data kategori quiz',
-                'message' => 'Terjadi kesalahan saat mengambil data kategori'
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => QuizCategory::orderBy('name')->get()
+        ]);
     }
 
-    // ADMIN
+    /**
+     * Tambah kategori quiz (ADMIN)
+     */
     public function store(Request $request)
     {
         try {
             $data = $request->validate([
-                'name' => 'required|string',
+                'name' => 'required|string|max:100',
+                'slug' => 'nullable|string|max:100',
                 'description' => 'nullable|string'
             ]);
+
+            $data['slug'] = Str::slug($data['name']);
 
             $category = QuizCategory::create($data);
 
@@ -49,31 +43,29 @@ class QuizCategoryController extends Controller
                 'data' => $category
             ], 201);
 
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal membuat kategori quiz',
-                'message' => 'Terjadi kesalahan pada database saat menyimpan kategori'
-            ], 500);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal membuat kategori quiz',
-                'message' => 'Terjadi kesalahan saat membuat kategori quiz'
+                'message' => 'Gagal membuat kategori quiz'
             ], 500);
         }
     }
 
+    /**
+     * Update kategori quiz (ADMIN)
+     */
     public function update(Request $request, $id)
     {
         try {
             $category = QuizCategory::findOrFail($id);
 
             $data = $request->validate([
-                'name' => 'sometimes|required|string',
+                'name' => 'required|string|max:100',
+                'slug' => 'nullable|string|max:100',
                 'description' => 'nullable|string'
             ]);
+
+            $data['slug'] = Str::slug($data['name']);
 
             $category->update($data);
 
@@ -83,29 +75,17 @@ class QuizCategoryController extends Controller
                 'data' => $category
             ]);
 
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Kategori quiz tidak ditemukan',
-                'message' => 'ID kategori quiz tidak valid'
-            ], 404);
-
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal memperbarui kategori quiz',
-                'message' => 'Terjadi kesalahan pada database saat update kategori'
-            ], 500);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal memperbarui kategori quiz',
-                'message' => 'Terjadi kesalahan saat memperbarui kategori quiz'
+                'message' => 'Gagal memperbarui kategori quiz'
             ], 500);
         }
     }
 
+    /**
+     * Hapus kategori quiz (ADMIN)
+     */
     public function destroy($id)
     {
         try {
@@ -117,18 +97,10 @@ class QuizCategoryController extends Controller
                 'message' => 'Kategori quiz berhasil dihapus'
             ]);
 
-        } catch (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Kategori quiz tidak ditemukan',
-                'message' => 'Kategori quiz dengan ID tersebut tidak ada'
-            ], 404);
-
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal menghapus kategori quiz',
-                'message' => 'Terjadi kesalahan saat menghapus kategori quiz'
+                'message' => 'Gagal menghapus kategori quiz'
             ], 500);
         }
     }

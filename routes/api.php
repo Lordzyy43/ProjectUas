@@ -75,6 +75,16 @@ Route::middleware(['auth:sanctum', 'is_admin'])
     ->prefix('admin')
     ->group(function () {
 
+        // Dashboard
+        Route::get('/dashboard', function () {
+            return response()->json([
+                'users'     => \App\Models\User::count(),
+                'courses'   => \App\Models\Course::count(),
+                'materials' => \App\Models\Material::count(),
+                'quizzes'   => \App\Models\Quiz::count(),
+            ]);
+        });
+
         // Courses
         Route::post('/courses', [CourseController::class, 'store']);
         Route::get('/courses', [CourseController::class, 'index']);
@@ -101,7 +111,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])
 
         // Quiz Questions
         Route::post('/quiz/{id}/questions', [QuizQuestionController::class, 'store']);
-        Route::get('//quiz/{id}/questions', [QuizQuestionController::class, 'index']);
+        Route::get('/quiz/{id}/questions', [QuizQuestionController::class, 'index']);
         Route::put('/questions/{id}', [QuizQuestionController::class, 'update']);
         Route::delete('/questions/{id}', [QuizQuestionController::class, 'destroy']);
     });

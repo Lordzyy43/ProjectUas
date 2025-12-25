@@ -12,12 +12,26 @@ use Exception;
 class CourseController extends Controller
 {
     public function index()
-    {
+{
         try {
+            $courses = Course::with(['creator'])
+                ->withCount('materials')
+                ->latest()
+                ->paginate(12);
+
+            // Tambahkan URL thumbnail
+            $courses->getCollection()->transform(function ($course) {
+                $course->thumbnail_url = $course->thumbnail
+                    ? asset('storage/' . $course->thumbnail)
+                    : null;
+                return $course;
+            });
+
             return response()->json([
                 'success' => true,
-                'data' => Course::withCount('materials')->paginate(12)
+                'data' => $courses
             ]);
+
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -26,6 +40,7 @@ class CourseController extends Controller
             ], 500);
         }
     }
+
 
     public function show($id)
     {

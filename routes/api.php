@@ -88,6 +88,7 @@ Route::middleware(['auth:sanctum', 'is_admin'])
         // Courses
         Route::post('/courses', [CourseController::class, 'store']);
         Route::get('/courses', [CourseController::class, 'index']);
+        Route::get('/courses/select', [CourseController::class, 'select']);
         Route::put('/courses/{id}', [CourseController::class, 'update']);
         Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
 

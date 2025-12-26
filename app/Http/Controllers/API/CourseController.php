@@ -41,6 +41,27 @@ class CourseController extends Controller
         }
     }
 
+    public function select()
+        {
+            try {
+                $courses = Course::select('id', 'title')
+                    ->orderBy('title')
+                    ->get();
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $courses
+                ]);
+
+            } catch (Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Gagal mengambil data course'
+                ], 500);
+            }
+        }
+
+
 
     public function show($id)
     {

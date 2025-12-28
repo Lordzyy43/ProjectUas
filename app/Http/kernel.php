@@ -38,5 +38,7 @@ class Kernel extends HttpKernel
 
         // custom
         'is_admin' => \App\Http\Middleware\IsAdmin::class,
+        'check_enrollment' => \App\Http\Middleware\CheckEnrollment::class,
     ];
+    
 }

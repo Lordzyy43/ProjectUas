@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// Controllers
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\CourseController;
 use App\Http\Controllers\API\MaterialController;
@@ -16,21 +17,33 @@ use App\Http\Controllers\API\QuizCategoryController;
 /*
 |--------------------------------------------------------------------------
 | PUBLIC API
-| Tanpa login, tanpa token
+| Bisa diakses TANPA login (guest)
 |--------------------------------------------------------------------------
 */
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::name('auth.')->group(function () {
+    Route::post('/register', [AuthController::class, 'register'])->name('register');
+    Route::post('/login', [AuthController::class, 'login'])->name('login');
+});
 
-Route::get('/courses', [CourseController::class, 'index']);
-Route::get('/courses/{id}', [CourseController::class, 'show']);
+// Course publik (landing page)
+Route::name('courses.')->group(function () {
+    Route::get('/courses', [CourseController::class, 'index'])->name('index');
+    Route::get('/courses/{id}', [CourseController::class, 'show'])->name('show');
+});
 
-Route::get('/quiz-categories', [QuizCategoryController::class, 'index']);
+// Quiz publik (preview)
+Route::name('quiz.')->group(function () {
+    Route::get('/quiz', [QuizController::class, 'index'])->name('index');
+    Route::get('/quiz/{id}', [QuizController::class, 'show'])->name('show');
+});
 
+// Quiz categories (filtering)
+Route::get(
+    '/quiz-categories',
+    [QuizCategoryController::class, 'index']
+)->name('quiz-categories.index');
 
-Route::get('/quiz', [QuizController::class, 'index']);
-Route::get('/quiz/{id}', [QuizController::class, 'show']);
 
 /*
 |--------------------------------------------------------------------------
@@ -39,30 +52,79 @@ Route::get('/quiz/{id}', [QuizController::class, 'show']);
 |--------------------------------------------------------------------------
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:sanctum')
+    ->name('user.')
+    ->group(function () {
 
-    Route::post('/logout', [AuthController::class, 'logout']);
+    // Logout & Profile
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
     Route::get('/profile', function (Request $request) {
         return $request->user();
+    })->name('profile');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enrollment (User mendaftar course)
+    |--------------------------------------------------------------------------
+    */
+    Route::name('enrollments.')->group(function () {
+        Route::post('/enroll/{course_id}', [EnrollmentController::class, 'enroll'])
+            ->name('store');
+
+        Route::get('/my-courses', [EnrollmentController::class, 'myCourses'])
+            ->name('my-courses');
+
+        Route::put(
+            '/my-courses/{course_id}/progress',
+            [EnrollmentController::class, 'updateProgress']
+        )->name('progress.update');
     });
 
-    // Enrollment
-    Route::post('/enroll/{course_id}', [EnrollmentController::class, 'enroll']);
-    Route::get('/my-courses', [EnrollmentController::class, 'myCourses']);
-    Route::put('/my-courses/{course_id}/progress', [EnrollmentController::class, 'updateProgress']);
+    /*
+    |--------------------------------------------------------------------------
+    | Course Content (HANYA course yang sudah di-enroll)
+    |--------------------------------------------------------------------------
+    */
+    Route::name('course-content.')
+    ->middleware('check_enrollment')
+    ->group(function () {
 
-    // Materials (HARUS SUDAH ENROLL)
+        // Materials per course
+        Route::get(
+            '/courses/{course_id}/materials',
+            [MaterialController::class, 'byCourse']
+        )->name('materials');
+
+        // Quiz list per course
+        Route::get(
+            '/courses/{course_id}/quiz',
+            [QuizController::class, 'byCourse']
+        )->name('quiz.index');
+
+        // Detail quiz dalam course
+        Route::get(
+            '/courses/{course_id}/quiz/{quiz_id}',
+            [QuizController::class, 'showByCourse']
+        )->name('quiz.show');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quiz Submission & Result
+    |--------------------------------------------------------------------------
+    */
+    Route::post(
+        '/quiz/{id}/submit',
+        [QuizSubmitController::class, 'submit']
+    )->name('quiz.submit');
+
     Route::get(
-        '/courses/{id}/materials',
-        [MaterialController::class, 'byCourse']
-    );
-
-    // Quiz
-    Route::post('/quiz/{id}/submit', [QuizSubmitController::class, 'submit']);
-
-    //  Menapilakn hasil quiz milik user yang sedang login
-    Route::get('/my-quiz-results', [QuizResultController::class, 'myResults']);
+        '/my-quiz-results',
+        [QuizResultController::class, 'myResults']
+    )->name('quiz.results');
 });
+
 
 /*
 |--------------------------------------------------------------------------
@@ -73,46 +135,81 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum', 'is_admin'])
     ->prefix('admin')
+    ->name('admin.')
     ->group(function () {
 
-        // Dashboard
-        Route::get('/dashboard', function () {
-            return response()->json([
-                'users'     => \App\Models\User::count(),
-                'courses'   => \App\Models\Course::count(),
-                'materials' => \App\Models\Material::count(),
-                'quizzes'   => \App\Models\Quiz::count(),
-            ]);
-        });
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard (statistik)
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/dashboard', function () {
+        return response()->json([
+            'users'     => \App\Models\User::count(),
+            'courses'   => \App\Models\Course::count(),
+            'materials' => \App\Models\Material::count(),
+            'quizzes'   => \App\Models\Quiz::count(),
+        ]);
+    })->name('dashboard');
 
-        // Courses
-        Route::post('/courses', [CourseController::class, 'store']);
-        Route::get('/courses', [CourseController::class, 'index']);
-        Route::get('/courses/select', [CourseController::class, 'select']);
-        Route::put('/courses/{id}', [CourseController::class, 'update']);
-        Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
-
-        // Materials
-        Route::post('/materials', [MaterialController::class, 'store']);
-        Route::get('/materials', [MaterialController::class, 'index']);
-        Route::put('/materials/{id}', [MaterialController::class, 'update']);
-        Route::delete('/materials/{id}', [MaterialController::class, 'destroy']);
-        
-        // Quiz Categories
-        Route::post('/quiz-categories', [QuizCategoryController::class, 'store']);
-        Route::get('/quiz-categories', [QuizcategoryController::class, 'index']);
-        Route::put('/quiz-categories/{id}', [QuizCategoryController::class, 'update']);
-        Route::delete('/quiz-categories/{id}', [QuizCategoryController::class, 'destroy']);
-        
-        // Quiz
-        Route::post('/quiz', [QuizController::class, 'store']);
-        Route::get('/quiz', [QuizController::class, 'index']);
-        Route::put('/quiz/{id}', [QuizController::class, 'update']);
-        Route::delete('/quiz/{id}', [QuizController::class, 'destroy']);
-
-        // Quiz Questions
-        Route::post('/quiz/{id}/questions', [QuizQuestionController::class, 'store']);
-        Route::get('/quiz/{id}/questions', [QuizQuestionController::class, 'index']);
-        Route::put('/questions/{id}', [QuizQuestionController::class, 'update']);
-        Route::delete('/questions/{id}', [QuizQuestionController::class, 'destroy']);
+    /*
+    |--------------------------------------------------------------------------
+    | Course Management
+    |--------------------------------------------------------------------------
+    */
+    Route::name('courses.')->group(function () {
+        Route::get('/courses', [CourseController::class, 'index'])->name('index');
+        Route::post('/courses', [CourseController::class, 'store'])->name('store');
+        Route::get('/courses/select', [CourseController::class, 'select'])->name('select');
+        Route::put('/courses/{id}', [CourseController::class, 'update'])->name('update');
+        Route::delete('/courses/{id}', [CourseController::class, 'destroy'])->name('destroy');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Material Management
+    |--------------------------------------------------------------------------
+    */
+    Route::name('materials.')->group(function () {
+        Route::get('/materials', [MaterialController::class, 'index'])->name('index');
+        Route::post('/materials', [MaterialController::class, 'store'])->name('store');
+        Route::put('/materials/{id}', [MaterialController::class, 'update'])->name('update');
+        Route::delete('/materials/{id}', [MaterialController::class, 'destroy'])->name('destroy');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quiz Category Management
+    |--------------------------------------------------------------------------
+    */
+    Route::name('quiz-categories.')->group(function () {
+        Route::get('/quiz-categories', [QuizCategoryController::class, 'index'])->name('index');
+        Route::post('/quiz-categories', [QuizCategoryController::class, 'store'])->name('store');
+        Route::put('/quiz-categories/{id}', [QuizCategoryController::class, 'update'])->name('update');
+        Route::delete('/quiz-categories/{id}', [QuizCategoryController::class, 'destroy'])->name('destroy');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quiz Management
+    |--------------------------------------------------------------------------
+    */
+    Route::name('quiz.')->group(function () {
+        Route::get('/quiz', [QuizController::class, 'index'])->name('index');
+        Route::post('/quiz', [QuizController::class, 'store'])->name('store');
+        Route::put('/quiz/{id}', [QuizController::class, 'update'])->name('update');
+        Route::delete('/quiz/{id}', [QuizController::class, 'destroy'])->name('destroy');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quiz Question Management
+    |--------------------------------------------------------------------------
+    */
+    Route::name('quiz-questions.')->group(function () {
+        Route::get('/quiz/{id}/questions', [QuizQuestionController::class, 'index'])->name('index');
+        Route::post('/quiz/{quiz_id}/questions', [QuizQuestionController::class, 'store'])->name('store');
+        Route::put('/questions/{id}', [QuizQuestionController::class, 'update'])->name('update');
+        Route::delete('/questions/{id}', [QuizQuestionController::class, 'destroy'])->name('destroy');
+    });
+});

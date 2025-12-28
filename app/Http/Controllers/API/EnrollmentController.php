@@ -3,47 +3,70 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\Enrollment;
 use App\Models\Course;
+use App\Models\Enrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Exception;
 
 class EnrollmentController extends Controller
 {
-    /**
-     * Enroll user ke course
-     */
-    public function enroll(Request $request, $course_id)
+    public function enroll($course_id)
     {
-        // ambil user login (AMAN untuk IDE & Laravel)
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        // pastikan course ada
-        $course = Course::findOrFail($course_id);
+            // 1. Pastikan course ada
+            $course = Course::findOrFail($course_id);
 
-        // cegah double enroll
-        $exists = Enrollment::where('user_id', $user->id)
-            ->where('course_id', $course_id)
-            ->exists();
+            // 2. Cek sudah enroll atau belum
+            $alreadyEnrolled = Enrollment::where('user_id', $user->id)
+                ->where('course_id', $course_id)
+                ->exists();
 
-        if ($exists) {
+            if ($alreadyEnrolled) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda sudah terdaftar pada course ini'
+                ], 409);
+            }
+
+            // 3. Simpan enrollment
+            Enrollment::create([
+                'user_id' => $user->id,
+                'course_id' => $course_id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil mendaftar course'
+            ], 201);
+
+        } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Anda sudah terdaftar pada course ini'
-            ], 409);
+                'message' => 'Course tidak ditemukan'
+            ], 404);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mendaftar course'
+            ], 500);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan'
+            ], 500);
         }
-
-        $enrollment = Enrollment::create([
-            'user_id' => $user->id,
-            'course_id' => $course_id
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Berhasil enroll course',
-            'data' => $enrollment
-        ], 201);
     }
+
+
+
+
 
     /**
      * Ambil daftar course milik user

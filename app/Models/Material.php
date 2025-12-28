@@ -12,5 +12,13 @@ class Material extends Model
     {
         return $this->belongsTo(Course::class);
     }
-}
 
+    protected $appends = ['image_url'];
+
+    public function getImageUrlAttribute()
+        {
+            return $this->image
+                ? asset('storage/' . $this->image)
+                : null;
+        }
+    }

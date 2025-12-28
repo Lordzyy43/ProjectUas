@@ -11,10 +11,10 @@ use Exception;
 
 class QuizQuestionController extends Controller
 {
-    public function index($quiz_id)
+    public function index($id)
     {
         try {
-            $questions = QuizQuestion::where('quiz_id', $quiz_id)->get();
+            $questions = QuizQuestion::where('quiz_id', $id)->get();
 
             return response()->json([
                 'success' => true,
@@ -36,7 +36,6 @@ class QuizQuestionController extends Controller
     {
         try {
             $data = $request->validate([
-                'quiz_id' => 'exists:quizzes,id',
                 'question_text' => 'required|string',
                 'option_a' => 'required|string',
                 'option_b' => 'required|string',

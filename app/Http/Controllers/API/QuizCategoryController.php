@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\QuizCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
 
 class QuizCategoryController extends Controller
 {
     /**
-     * Ambil semua kategori quiz (public / user)
+     * Ambil semua kategori quiz (PUBLIC / USER)
      */
     public function index()
     {
@@ -28,8 +29,7 @@ class QuizCategoryController extends Controller
     {
         try {
             $data = $request->validate([
-                'name' => 'required|string|max:100',
-                'slug' => 'nullable|string|max:100',
+                'name' => 'required|string|max:100|unique:quiz_categories,name',
                 'description' => 'nullable|string'
             ]);
 
@@ -60,8 +60,7 @@ class QuizCategoryController extends Controller
             $category = QuizCategory::findOrFail($id);
 
             $data = $request->validate([
-                'name' => 'required|string|max:100',
-                'slug' => 'nullable|string|max:100',
+                'name' => 'required|string|max:100|unique:quiz_categories,name,' . $id,
                 'description' => 'nullable|string'
             ]);
 
@@ -74,6 +73,12 @@ class QuizCategoryController extends Controller
                 'message' => 'Kategori quiz berhasil diperbarui',
                 'data' => $category
             ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori quiz tidak ditemukan'
+            ], 404);
 
         } catch (Exception $e) {
             return response()->json([
@@ -96,6 +101,12 @@ class QuizCategoryController extends Controller
                 'success' => true,
                 'message' => 'Kategori quiz berhasil dihapus'
             ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori quiz tidak ditemukan'
+            ], 404);
 
         } catch (Exception $e) {
             return response()->json([

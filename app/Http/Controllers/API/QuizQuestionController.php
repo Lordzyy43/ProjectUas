@@ -44,6 +44,15 @@ class QuizQuestionController extends Controller
                 'correct_answer' => 'required|in:a,b,c,d'
             ]);
 
+            $answerKey = 'option_' . $data['correct_answer'];
+            if (empty($data[$answerKey])) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Validasi jawaban benar gagal',
+                    'message' => 'Jawaban benar harus sesuai dengan opsi yang tersedia'
+                ], 422);
+            }
+
             $data['quiz_id'] = $quiz_id;
 
             $question = QuizQuestion::create($data);
@@ -84,6 +93,19 @@ class QuizQuestionController extends Controller
                 'option_d' => 'nullable|string',
                 'correct_answer' => 'sometimes|required|in:a,b,c,d'
             ]);
+
+            // gabung data lama dengan data baru
+            $marged = array_merge($question->toArray(), $data);
+
+            // validasi jawaban benar sesuai opsi
+            $answerKey = 'option_' . $marged['correct_answer'];
+            if (empty($marged[$answerKey])) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Validasi gagal',
+                    'message' => 'Jawaban benar tidak boleh menunjuk ke opsi kosong'
+                ], 422);
+            }
 
             $question->update($data);
 

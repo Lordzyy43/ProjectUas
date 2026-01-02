@@ -45,7 +45,7 @@ class QuizQuestionController extends Controller
             ]);
 
             $answerKey = 'option_' . $data['correct_answer'];
-            if (empty($data[$answerKey])) {
+            if (isset($data[$answerKey]) && trim($data[$answerKey]) === '') {
                 return response()->json([
                     'success' => false,
                     'error' => 'Validasi jawaban benar gagal',
@@ -98,13 +98,15 @@ class QuizQuestionController extends Controller
             $marged = array_merge($question->toArray(), $data);
 
             // validasi jawaban benar sesuai opsi
-            $answerKey = 'option_' . $marged['correct_answer'];
-            if (empty($marged[$answerKey])) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Validasi gagal',
-                    'message' => 'Jawaban benar tidak boleh menunjuk ke opsi kosong'
-                ], 422);
+            if (isset($marged['correct_answer'])) {
+                $answerKey = 'option_' . $marged['correct_answer'];
+
+                if (empty($marged[$answerKey])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Jawaban benar tidak boleh menunjuk ke opsi kosong'
+                    ], 422);
+                }
             }
 
             $question->update($data);

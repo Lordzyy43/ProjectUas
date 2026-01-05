@@ -36,4 +36,6 @@ class QuizResultController extends Controller
             ], 500);
         }
     }
+
+    
 }

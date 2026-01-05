@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Course extends Model
 {
-    protected $fillable = ['title','category','description','thumbnail','created_by'];
+    protected $fillable = ['title','description','thumbnail','course_category_id','created_by'];
 
     public function materials()
         {
@@ -25,8 +25,14 @@ class Course extends Model
 
         public function creator()
         {
-            return $this->belongsTo(User::class, 'created_by');
+            return $this->belongsTo(User::class, 'created_by')->withDefault();
         }
+
+        public function category()
+        {
+            return $this->belongsTo(CourseCategory::class, 'course_category_id')->withDefault();
+        }
+
 
 }
 

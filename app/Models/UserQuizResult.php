@@ -12,6 +12,7 @@ class UserQuizResult extends Model
     protected $fillable = [
         'user_id',
         'quiz_id',
+        'attempt',
         'score',
         'correct_count',
         'total_questions'

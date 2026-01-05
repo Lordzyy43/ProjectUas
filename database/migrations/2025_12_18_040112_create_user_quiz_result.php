@@ -19,16 +19,22 @@ return new class extends Migration
                 ->constrained('quizzes')
                 ->cascadeOnDelete();
 
+            // 🔑 KUNCI ATTEMPT
+            $table->unsignedInteger('attempt');
+
             $table->integer('score');
             $table->integer('correct_count');
             $table->integer('total_questions');
 
             $table->timestamps();
 
-            $table->unique(['user_id', 'quiz_id']);
+            // ✅ unik per ATTEMPT
+            $table->unique([
+                'user_id',
+                'quiz_id',
+                'attempt'
+            ]);
         });
-
-
     }
 
     public function down(): void

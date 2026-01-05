@@ -23,13 +23,21 @@ return new class extends Migration
                 ->constrained('quiz_questions')
                 ->cascadeOnDelete();
 
+            // 🔑 PENENTU ATTEMPT
+            $table->unsignedInteger('attempt');
+
             $table->enum('selected_answer', ['a','b','c','d']);
             $table->boolean('is_correct');
 
             $table->timestamps();
 
-            // cegah jawaban ganda untuk soal yang sama
-            $table->unique(['user_id','quiz_id','question_id']);
+            // ✅ unik per ATTEMPT
+            $table->unique([
+                'user_id',
+                'quiz_id',
+                'question_id',
+                'attempt'
+            ]);
         });
     }
 

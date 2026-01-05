@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Material extends Model
 {
-    protected $fillable = ['course_id','title','content','image','order'];
+    protected $fillable = ['course_id','material_category_id','title','content','image','order'];
 
     public function course()
     {
@@ -15,10 +15,17 @@ class Material extends Model
 
     protected $appends = ['image_url'];
 
-    public function getImageUrlAttribute()
+        public function getImageUrlAttribute()
         {
             return $this->image
                 ? asset('storage/' . $this->image)
                 : null;
         }
+
+        public function category()
+        {
+            return $this->belongsTo(MaterialCategory::class, 'material_category_id');
+        }
+
+
     }

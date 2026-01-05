@@ -21,7 +21,7 @@ class Quiz extends Model
 
     public function category()
     {
-        return $this->belongsTo(QuizCategory::class, 'quiz_category_id');
+        return $this->belongsTo(QuizCategory::class, 'quiz_category_id')->withDefault();
     }
 
     public function questions()

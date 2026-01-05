@@ -5,24 +5,31 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Quiz;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Exception;
 
 class QuizController extends Controller
 {
+    /**
+     * =========================
+     * LIST QUIZ
+     * Bisa diakses PUBLIC / USER
+     * Filter by category opsional
+     * =========================
+     */
     public function index(Request $request)
     {
         try {
             $query = Quiz::with(['category', 'course']);
 
-            // filter by category (opsional)
+            // Filter by category (opsional)
             if ($request->has('category_id')) {
                 $query->where('quiz_category_id', $request->category_id);
             }
 
-            // paginate agar tidak terlalu berat saat banyak data
-            $quizzes = $query->paginate(10);
+            $quizzes = $query->paginate(10); // pagination agar tidak berat
 
             return response()->json([
                 'success' => true,
@@ -33,16 +40,21 @@ class QuizController extends Controller
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal mengambil data quiz',
-                'message' => 'Terjadi kesalahan saat mengambil data quiz'
+                'message' => 'Gagal mengambil data quiz'
             ], 500);
         }
     }
 
+    /**
+     * =========================
+     * DETAIL QUIZ
+     * Bisa diakses PUBLIC / USER
+     * =========================
+     */
     public function show($id)
     {
         try {
-            $quiz = Quiz::with(['category', 'questions', 'course'])->findOrFail($id);
+            $quiz = Quiz::with(['category', 'course', 'questions'])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -53,29 +65,39 @@ class QuizController extends Controller
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Quiz tidak ditemukan',
-                'message' => 'ID quiz tidak valid'
+                'message' => 'Quiz tidak ditemukan'
             ], 404);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal mengambil detail quiz',
-                'message' => 'Terjadi kesalahan saat mengambil detail quiz'
+                'message' => 'Gagal mengambil detail quiz'
             ], 500);
         }
     }
 
-    // ADMIN
+    /**
+     * =========================
+     * CREATE QUIZ
+     * Hanya ADMIN
+     * =========================
+     */
     public function store(Request $request)
     {
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $data = $request->validate([
-                'course_id'=>'required|exists:courses,id',
-                'quiz_category_id'=>'required|exists:quiz_categories,id',
-                'title'=>'required|string',
-                'description'=>'nullable|string',
-                'time_limit_minutes'=>'nullable|integer'
+                'course_id' => 'required|exists:courses,id',
+                'quiz_category_id' => 'required|exists:quiz_categories,id',
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'time_limit_minutes' => 'nullable|integer'
             ]);
 
             $quiz = Quiz::create($data);
@@ -89,30 +111,41 @@ class QuizController extends Controller
         } catch (QueryException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal membuat quiz',
-                'message' => 'Terjadi kesalahan pada database saat menyimpan quiz'
+                'message' => 'Gagal membuat quiz, terjadi kesalahan pada database'
             ], 500);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal membuat quiz',
                 'message' => 'Periksa kembali data quiz yang dikirim'
             ], 500);
         }
     }
 
+    /**
+     * =========================
+     * UPDATE QUIZ
+     * Hanya ADMIN
+     * =========================
+     */
     public function update(Request $request, $id)
     {
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $quiz = Quiz::findOrFail($id);
 
             $data = $request->validate([
-                'course_id'=>'sometimes|required|exists:courses,id',
-                'quiz_category_id'=>'sometimes|required|exists:quiz_categories,id',
-                'title'=>'sometimes|required|string',
-                'description'=>'nullable|string',
-                'time_limit_minutes'=>'nullable|integer'
+                'course_id' => 'sometimes|required|exists:courses,id',
+                'quiz_category_id' => 'sometimes|required|exists:quiz_categories,id',
+                'title' => 'sometimes|required|string|max:255',
+                'description' => 'nullable|string',
+                'time_limit_minutes' => 'nullable|integer'
             ]);
 
             $quiz->update($data);
@@ -126,28 +159,38 @@ class QuizController extends Controller
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Quiz tidak ditemukan',
-                'message' => 'Tidak dapat memperbarui quiz karena ID tidak valid'
+                'message' => 'Quiz tidak ditemukan'
             ], 404);
 
         } catch (QueryException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal memperbarui quiz',
-                'message' => 'Terjadi kesalahan pada database saat menyimpan perubahan'
+                'message' => 'Terjadi kesalahan pada database saat memperbarui quiz'
             ], 500);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal memperbarui quiz',
                 'message' => 'Periksa kembali data quiz yang dikirim'
             ], 500);
         }
     }
 
+    /**
+     * =========================
+     * DELETE QUIZ
+     * Hanya ADMIN
+     * =========================
+     */
     public function destroy($id)
     {
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $quiz = Quiz::findOrFail($id);
             $quiz->delete();
@@ -160,14 +203,12 @@ class QuizController extends Controller
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Quiz tidak ditemukan',
-                'message' => 'Tidak dapat menghapus quiz karena ID tidak valid'
+                'message' => 'Quiz tidak ditemukan'
             ], 404);
 
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal menghapus quiz',
                 'message' => 'Terjadi kesalahan saat menghapus quiz'
             ], 500);
         }

@@ -4,10 +4,11 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Enrollment;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Course;
-use Illuminate\Http\Request;
 use App\Models\Material;
+use App\Models\MaterialCategory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
@@ -16,18 +17,20 @@ use Exception;
 class MaterialController extends Controller
 {
     /**
-     * Ambil material berdasarkan course (user harus sudah enroll)
+     * =========================
+     * AMBIL MATERIAL BERDASARKAN COURSE
+     * USER harus sudah enroll di course
+     * =========================
      */
     public function byCourse($course_id)
     {
         try {
-            // ambil user login (AMAN untuk IDE & Laravel)
-            $user = Auth::user();
+            $user = Auth::user(); // user login
 
-            // 1. Pastikan course ada
+            // Pastikan course ada
             $course = Course::findOrFail($course_id);
 
-            // 2. Pastikan user sudah enroll
+            // Pastikan user sudah enroll
             $isEnrolled = Enrollment::where('user_id', $user->id)
                 ->where('course_id', $course_id)
                 ->exists();
@@ -40,8 +43,9 @@ class MaterialController extends Controller
                 ], 403);
             }
 
-            // 3. Ambil material
+            // Ambil material, join dengan kategori
             $materials = $course->materials()
+                ->with('category') // include material category
                 ->orderBy('order')
                 ->get();
 
@@ -66,17 +70,55 @@ class MaterialController extends Controller
     }
 
     /**
-     * Tambah material (ADMIN)
+     * =========================
+     * AMBIL SEMUA MATERIAL (ADMIN)
+     * Bisa untuk listing materi semua course
+     * =========================
+     */
+    public function index()
+    {
+        try {
+            $materials = Material::with('category', 'course')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $materials
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal mengambil data material',
+                'message' => 'Terjadi kesalahan pada server'
+            ], 500);
+        }
+    }
+
+    /**
+     * =========================
+     * TAMBAH MATERIAL (ADMIN)
+     * =========================
      */
     public function store(Request $request)
     {
+        // Cek admin
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $data = $request->validate([
-                'course_id' => 'required|exists:courses,id',
-                'title'     => 'required|string',
-                'content'   => 'nullable|string',
-                'image'     => 'nullable|image|max:2048',
-                'order'     => 'nullable|integer'
+                'course_id'         => 'required|exists:courses,id',
+                'material_category_id' => 'nullable|exists:material_categories,id', // baru
+                'title'             => 'required|string',
+                'content'           => 'nullable|string',
+                'image'             => 'nullable|image|max:2048',
+                'order'             => 'nullable|integer'
             ]);
 
             if ($request->hasFile('image')) {
@@ -108,51 +150,37 @@ class MaterialController extends Controller
         }
     }
 
-
-
     /**
-     * Ambil material (ADMIN)
-     */
-    public function index()
-    {
-        try {
-            $materials = Material::orderBy('created_at', 'desc')->get();
-
-            return response()->json([
-                'success' => true,
-                'data' => $materials
-            ]);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal mengambil data material',
-                'message' => 'Terjadi kesalahan pada server'
-            ], 500);
-        }
-    }
-
-    /**
-     * Update material (ADMIN)
+     * =========================
+     * UPDATE MATERIAL (ADMIN)
+     * =========================
      */
     public function update(Request $request, $id)
     {
+        // Cek admin
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $material = Material::findOrFail($id);
 
             $data = $request->validate([
-                'course_id' => 'required|exists:courses,id',
-                'title'   => 'nullable|string',
-                'content' => 'nullable|string',
-                'image'   => 'nullable|image|max:2048',
-                'order'   => 'nullable|integer',
+                'course_id'             => 'required|exists:courses,id',
+                'material_category_id'  => 'nullable|exists:material_categories,id',
+                'title'                 => 'nullable|string',
+                'content'               => 'nullable|string',
+                'image'                 => 'nullable|image|max:2048',
+                'order'                 => 'nullable|integer',
             ]);
 
             if ($request->hasFile('image')) {
                 if ($material->image) {
                     Storage::disk('public')->delete($material->image);
                 }
-
                 $data['image'] = $request->file('image')
                     ->store('materials', 'public');
             }
@@ -187,10 +215,20 @@ class MaterialController extends Controller
     }
 
     /**
-     * Hapus material (ADMIN)
+     * =========================
+     * HAPUS MATERIAL (ADMIN)
+     * =========================
      */
     public function destroy($id)
     {
+        // Cek admin
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $material = Material::findOrFail($id);
 

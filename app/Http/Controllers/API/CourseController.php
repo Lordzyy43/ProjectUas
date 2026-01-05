@@ -5,21 +5,27 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Course;
+use App\Models\CourseCategory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Exception;
 
 class CourseController extends Controller
 {
+    // =======================
+    // USER: Ambil daftar course
+    // =======================
     public function index()
-{
+    {
         try {
-            $courses = Course::with(['creator'])
+            $courses = Course::with([
+                    'creator' => fn($q) => $q->withDefault(),
+                    'category' => fn($q) => $q->withDefault()
+                ])
                 ->withCount('materials')
                 ->latest()
                 ->paginate(12);
 
-            // Tambahkan URL thumbnail
             $courses->getCollection()->transform(function ($course) {
                 $course->thumbnail_url = $course->thumbnail
                     ? asset('storage/' . $course->thumbnail)
@@ -33,43 +39,53 @@ class CourseController extends Controller
             ]);
 
         } catch (Exception $e) {
+            \Log::error('Error fetching courses: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal memuat daftar course',
-                'message' => 'Terjadi kesalahan saat mengambil data course'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }
 
+    // =======================
+    // USER: Ambil course untuk select/dropdown
+    // =======================
     public function select()
-        {
-            try {
-                $courses = Course::select('id', 'title')
-                    ->orderBy('title')
-                    ->get();
+    {
+        try {
+            $courses = Course::select('id', 'title', 'course_category_id')
+                ->orderBy('title')
+                ->get();
 
-                return response()->json([
-                    'success' => true,
-                    'data' => $courses
-                ]);
+            return response()->json([
+                'success' => true,
+                'data' => $courses
+            ]);
 
-            } catch (Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Gagal mengambil data course'
-                ], 500);
-            }
+        } catch (Exception $e) {
+            \Log::error('Error fetching courses for select: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Gagal mengambil data course'
+            ], 500);
         }
+    }
 
-
-
+    // =======================
+    // USER: Detail course
+    // =======================
     public function show($id)
     {
         try {
+            $course = Course::with(['materials', 'category', 'creator'])
+                ->findOrFail($id);
+
             return response()->json([
                 'success' => true,
-                'data' => Course::with('materials')->findOrFail($id)
+                'data' => $course
             ]);
+
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
@@ -77,14 +93,18 @@ class CourseController extends Controller
                 'message' => 'Course dengan ID tersebut tidak tersedia'
             ], 404);
         } catch (Exception $e) {
+            \Log::error('Error fetching course detail: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal memuat detail course',
-                'message' => 'Terjadi kesalahan saat mengambil detail course'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }
 
+    // =======================
+    // USER: Ambil materi course
+    // =======================
     public function materials($id)
     {
         try {
@@ -100,47 +120,61 @@ class CourseController extends Controller
                 'message' => 'Tidak dapat menampilkan materi karena course tidak tersedia'
             ], 404);
         } catch (Exception $e) {
+            \Log::error('Error fetching course materials: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal memuat materi course',
-                'message' => 'Terjadi kesalahan saat mengambil daftar materi'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }
 
-    // ADMIN
+    // =======================
+    // ADMIN: Buat course baru
+    // =======================
     public function store(Request $request)
     {
         try {
+            // VALIDASI
             $data = $request->validate([
-                'title'=>'required|string',
-                'category'=>'nullable|string',
-                'description'=>'nullable|string',
-                'thumbnail'=>'nullable|image|max:2048'
+                'title' => 'required|string|max:255',
+                'course_category_id' => 'nullable|exists:course_categories,id',
+                'description' => 'nullable|string',
+                'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048'
             ]);
 
+            // HANDLE THUMBNAIL
             if ($request->hasFile('thumbnail')) {
-                $data['thumbnail'] = $request->file('thumbnail')
-                    ->store('course-thumbnails','public');
+                $path = $request->file('thumbnail')->store('course-thumbnails', 'public');
+                $data['thumbnail'] = $path;
             }
 
+            // TAMBAHKAN CREATOR
             $data['created_by'] = auth()->id();
-            Course::create($data);
+
+            // CREATE COURSE
+            $course = Course::create($data);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Course berhasil dibuat'
+                'message' => 'Course berhasil dibuat',
+                'data' => $course->load('category')
             ], 201);
 
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
+            \Log::error('Error creating course: '.$e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal membuat course',
-                'message' => 'Periksa kembali data input atau konfigurasi database'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }
 
+
+    // =======================
+    // ADMIN: Update course
+    // =======================
     public function update(Request $request, $id)
     {
         try {
@@ -148,7 +182,7 @@ class CourseController extends Controller
 
             $data = $request->validate([
                 'title'=>'nullable|string',
-                'category'=>'nullable|string',
+                'course_category_id'=>'nullable|exists:course_categories,id',
                 'description'=>'nullable|string',
                 'thumbnail'=>'nullable|image|max:2048'
             ]);
@@ -166,7 +200,7 @@ class CourseController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Course berhasil diperbarui',
-                'data' => $course
+                'data' => $course->load('category')
             ]);
 
         } catch (ModelNotFoundException $e) {
@@ -176,14 +210,18 @@ class CourseController extends Controller
                 'message' => 'Tidak dapat memperbarui course karena ID tidak valid'
             ], 404);
         } catch (Exception $e) {
+            \Log::error('Error updating course: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal memperbarui course',
-                'message' => 'Terjadi kesalahan saat menyimpan perubahan course'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }
 
+    // =======================
+    // ADMIN: Hapus course
+    // =======================
     public function destroy($id)
     {
         try {
@@ -203,14 +241,14 @@ class CourseController extends Controller
         } catch (ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Course tidak ditemukan',
-                'message' => 'Tidak dapat menghapus course karena ID tidak valid'
+                'error' => 'Course tidak ditemukan'
             ], 404);
         } catch (Exception $e) {
+            \Log::error('Error deleting course: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Gagal menghapus course',
-                'message' => 'Terjadi kesalahan saat menghapus data course'
+                'message' => 'Terjadi kesalahan, silakan coba lagi'
             ], 500);
         }
     }

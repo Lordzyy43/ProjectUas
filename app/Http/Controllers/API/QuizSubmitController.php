@@ -14,63 +14,50 @@ use Exception;
 class QuizSubmitController extends Controller
 {
     /**
-     * ============================
-     * SUBMIT QUIZ
-     * Endpoint: POST /api/quiz/{quizId}/submit
-     * ============================
+     * Submit quiz oleh user
      */
     public function submit(Request $request, $quizId)
     {
-        // Mulai transaksi database
         DB::beginTransaction();
 
         try {
-            // ============================
-            // AMBIL USER YANG LOGIN
-            // ============================
             $user = Auth::user();
-
-            // ============================
-            // AMBIL QUIZ BESERTA PERTANYAAN
-            // ============================
             $quiz = Quiz::with('questions')->findOrFail($quizId);
 
-            // ============================
-            // CEGAH SUBMIT ULANG
-            // ============================
-            if (UserQuizResult::where('user_id', $user->id)
-                ->where('quiz_id', $quizId)
-                ->exists()) {
+            // cek enrollment
+            if (!$user->enrollments()->where('course_id', $quiz->course_id)->exists()) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
-                    'message' => 'Quiz sudah pernah dikerjakan'
-                ], 409);
+                    'message' => 'Anda harus mendaftar course terlebih dahulu'
+                ], 403);
             }
 
-            // ============================
-            // VALIDASI PAYLOAD DARI FRONTEND
-            // ============================
+            $questions = $quiz->questions;
+            if ($questions->count() === 0) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Quiz belum memiliki soal'
+                ], 422);
+            }
+
+            $lastAttempt = UserQuizResult::where('user_id', $user->id)
+                                         ->where('quiz_id', $quizId)
+                                         ->max('attempt');
+
+            $attempt = ($lastAttempt ?? 0) + 1;
+
             $data = $request->validate([
                 'answers' => 'required|array|min:1',
                 'answers.*.question_id' => 'required|exists:quiz_questions,id',
-                'answers.*.answer' => 'required|in:A,B,C,D', // sesuai pilihan di frontend
+                'answers.*.answer' => 'required|in:a,b,c,d',
             ]);
 
-            // ============================
-            // UBAH ARRAY MENJADI KEY BY question_id
-            // Supaya mudah diakses
-            // ============================
             $answers = collect($data['answers'])->keyBy('question_id');
+            $correctCount = 0;
 
-            $correct = 0;
-            $total = $quiz->questions->count();
-
-            // ============================
-            // LOOPING SETIAP PERTANYAAN
-            // ============================
-            foreach ($quiz->questions as $question) {
-
-                // Pastikan semua soal dijawab
+            foreach ($questions as $question) {
                 if (!$answers->has($question->id)) {
                     DB::rollBack();
                     return response()->json([
@@ -79,64 +66,85 @@ class QuizSubmitController extends Controller
                     ], 422);
                 }
 
-                // Ambil jawaban user & validasi
-                $selected = strtoupper($answers[$question->id]['answer']);
-                $isCorrect = $selected === $question->correct_answer;
+                $selectedAnswer = strtolower($answers[$question->id]['answer']);
+                $isCorrect = $selectedAnswer === $question->correct_answer;
 
-                // Hitung jawaban benar
-                if ($isCorrect) {
-                    $correct++;
-                }
+                if ($isCorrect) $correctCount++;
 
-                // Simpan jawaban user
                 UserQuizAnswer::create([
                     'user_id' => $user->id,
                     'quiz_id' => $quizId,
+                    'attempt' => $attempt,
                     'question_id' => $question->id,
-                    'selected_answer' => $selected,
+                    'selected_answer' => $selectedAnswer,
                     'is_correct' => $isCorrect
                 ]);
             }
 
-            // ============================
-            // HITUNG SKOR
-            // ============================
-            $score = (int) round(($correct / $total) * 100);
+            $score = (int) round(($correctCount / $questions->count()) * 100);
 
-            // Simpan hasil quiz
             UserQuizResult::create([
                 'user_id' => $user->id,
                 'quiz_id' => $quizId,
+                'attempt' => $attempt,
                 'score' => $score,
-                'correct_count' => $correct,
-                'total_questions' => $total
+                'correct_count' => $correctCount,
+                'total_questions' => $questions->count()
             ]);
 
-            // Commit transaksi
             DB::commit();
 
-            // ============================
-            // RETURN RESPONSE SUKSES
-            // ============================
             return response()->json([
                 'success' => true,
                 'message' => 'Quiz berhasil disubmit',
                 'data' => [
-                    'total_questions' => $total,
-                    'correct_answers' => $correct,
+                    'attempt' => $attempt,
+                    'total_questions' => $questions->count(),
+                    'correct_answers' => $correctCount,
                     'score' => $score
                 ]
-            ], 200);
+            ]);
 
         } catch (Exception $e) {
-            // Rollback transaksi jika ada error
             DB::rollBack();
-
-            // Return error
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal submit quiz',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Detail hasil quiz terakhir
+     */
+    public function detailResult($quizId)
+    {
+        try {
+            $user = Auth::user();
+
+            $result = UserQuizResult::with('quiz')
+                ->where('user_id', $user->id)
+                ->where('quiz_id', $quizId)
+                ->orderByDesc('attempt')
+                ->first();
+
+            if (!$result) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Hasil quiz tidak ditemukan'
+                ], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil hasil quiz'
             ], 500);
         }
     }

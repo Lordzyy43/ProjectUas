@@ -7,26 +7,43 @@ use App\Models\QuizCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Auth;
 use Exception;
 
 class QuizCategoryController extends Controller
 {
     /**
-     * Ambil semua kategori quiz (PUBLIC / USER)
+     * =========================
+     * LIST KATEGORI QUIZ
+     * Bisa diakses PUBLIC & USER
+     * =========================
      */
     public function index()
     {
+        $categories = QuizCategory::orderBy('name')->get();
+
         return response()->json([
             'success' => true,
-            'data' => QuizCategory::orderBy('name')->get()
+            'data' => $categories
         ]);
     }
 
     /**
-     * Tambah kategori quiz (ADMIN)
+     * =========================
+     * CREATE KATEGORI QUIZ
+     * Hanya untuk ADMIN
+     * =========================
      */
     public function store(Request $request)
     {
+        // Cek user admin
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $data = $request->validate([
                 'name' => 'required|string|max:100|unique:quiz_categories,name',
@@ -52,10 +69,20 @@ class QuizCategoryController extends Controller
     }
 
     /**
-     * Update kategori quiz (ADMIN)
+     * =========================
+     * UPDATE KATEGORI QUIZ
+     * Hanya untuk ADMIN
+     * =========================
      */
     public function update(Request $request, $id)
     {
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $category = QuizCategory::findOrFail($id);
 
@@ -89,10 +116,20 @@ class QuizCategoryController extends Controller
     }
 
     /**
-     * Hapus kategori quiz (ADMIN)
+     * =========================
+     * DELETE KATEGORI QUIZ
+     * Hanya untuk ADMIN
+     * =========================
      */
     public function destroy($id)
     {
+        if (!Auth::check() || !Auth::user()->is_admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses ditolak'
+            ], 403);
+        }
+
         try {
             $category = QuizCategory::findOrFail($id);
             $category->delete();

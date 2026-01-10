@@ -69,6 +69,19 @@ class MaterialController extends Controller
         }
     }
 
+    public function show($id)
+{
+    try {
+        $material = Material::with(['course', 'category'])->findOrFail($id);
+        return response()->json([
+            'success' => true,
+            'data' => $material
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => 'Materi tidak ditemukan'], 404);
+    }
+}
+
     /**
      * =========================
      * AMBIL SEMUA MATERIAL (ADMIN)

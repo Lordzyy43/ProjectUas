@@ -12,6 +12,7 @@ class UserQuizAnswer extends Model
     protected $fillable = [
         'user_id',
         'quiz_id',
+        'attempt',
         'question_id',
         'selected_answer',
         'is_correct'

@@ -40,5 +40,10 @@ class Kernel extends HttpKernel
         'is_admin' => \App\Http\Middleware\IsAdmin::class,
         'check_enrollment' => \App\Http\Middleware\CheckEnrollment::class,
     ];
+
+    protected $middlewareAliases = [
+    // ... middleware lainnya
+    'check_enrollment' => \App\Http\Middleware\CheckEnrollment::class, // Pastikan path class-nya benar
+];
     
 }

@@ -4,9 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use App\Models\Material;
 
 class MaterialCategory extends Model
 {
+
+    protected $table = 'material_categories';
+    
         protected $fillable = ['name', 'slug','description'];
 
         protected static function booted()
@@ -20,6 +24,6 @@ class MaterialCategory extends Model
 
         public function materials()
         {
-            return $this->hasMany(Material::class);
+            return $this->hasMany(Material::class, 'material_category_id');
         }
     }

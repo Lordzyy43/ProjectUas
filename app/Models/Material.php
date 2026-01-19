@@ -18,9 +18,15 @@ class Material extends Model
 
         public function getImageUrlAttribute()
         {
-            return $this->image
-                ? asset('storage/' . $this->image)
-                : null;
+            if (!$this->image) return null;
+            
+            // Jika path sudah mengandung http (dari seeder), langsung return
+            if (filter_var($this->image, FILTER_VALIDATE_URL)) {
+                return $this->image;
+            }
+
+            // Pastikan path tersambung dengan benar ke storage
+            return url('storage/' . $this->image);
         }
 
         public function category()

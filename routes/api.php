@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 // Controllers
 // =======================
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\PublicStatsController;
 use App\Http\Controllers\API\CourseController;
 use App\Http\Controllers\API\CourseCategoryController;
 use App\Http\Controllers\API\MaterialController;
@@ -28,6 +29,9 @@ use App\Http\Controllers\API\QuizPlayController;
 // ===== Auth =====
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// ===== Public Stats =====
+Route::get('/stats/overview', [PublicStatsController::class, 'overview']);
 
 // ===== Course Preview =====
 Route::get('/courses', [CourseController::class, 'index']);

@@ -116,49 +116,52 @@ class MaterialController extends Controller
      */
     public function store(Request $request)
     {
-        // Cek admin
         if (!Auth::check() || !Auth::user()->is_admin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akses ditolak'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
 
         try {
-            $data = $request->validate([
-                'course_id'         => 'required|exists:courses,id',
-                'material_category_id' => 'nullable|exists:material_categories,id', // baru
-                'title'             => 'required|string',
-                'content'           => 'nullable|string',
-                'image'             => 'nullable|image|max:2048',
-                'order'             => 'nullable|integer'
+            $validatedData = $request->validate([
+                'course_id'            => 'required',
+                'material_category_id' => 'nullable',
+                'title'                => 'required|string',
+                'content'              => 'nullable|string',
+                'order'                => 'nullable',
             ]);
 
+            // Tambahkan pengecekan tambahan untuk debugging
             if ($request->hasFile('image')) {
-                $data['image'] = $request->file('image')
-                    ->store('materials', 'public');
+                $file = $request->file('image');
+                
+                // Nama file unik
+                $fileName = time() . '_' . $file->getClientOriginalName();
+                
+                // Pastikan folder tujuan ada
+                $targetDir = public_path('storage/materials');
+                if (!file_exists($targetDir)) {
+                    mkdir($targetDir, 0777, true);
+                }
+
+                // Pindahkan file
+                $file->move($targetDir, $fileName);
+                
+                // Isi path ke validatedData agar masuk ke DB
+                $validatedData['image'] = 'materials/' . $fileName;
             }
 
-            $material = Material::create($data);
+            $material = Material::create($validatedData);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Material berhasil ditambahkan',
-                'data' => $material
+                'message' => 'Material berhasil ditambahkan!',
+                'data' => $material->load('category') // Load agar UI langsung terupdate rapi
             ], 201);
 
-        } catch (QueryException $e) {
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Gagal menambahkan material',
-                'message' => 'Terjadi kesalahan pada database'
-            ], 500);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal menambahkan material',
-                'message' => 'Periksa kembali data input'
+                'error'   => 'Server Error',
+                'message' => $e->getMessage()
             ], 500);
         }
     }
@@ -181,48 +184,56 @@ class MaterialController extends Controller
         try {
             $material = Material::findOrFail($id);
 
-            $data = $request->validate([
-                'course_id'             => 'required|exists:courses,id',
-                'material_category_id'  => 'nullable|exists:material_categories,id',
-                'title'                 => 'nullable|string',
-                'content'               => 'nullable|string',
-                'image'                 => 'nullable|image|max:2048',
-                'order'                 => 'nullable|integer',
+            // Validasi teks (image dipisah dulu agar tidak kena error validator image bawaan jika MIME bermasalah)
+            $request->validate([
+                'course_id'            => 'required|exists:courses,id',
+                'material_category_id' => 'nullable|exists:material_categories,id',
+                'title'                => 'required|string',
+                'content'              => 'nullable|string',
+                'order'                => 'nullable|integer',
             ]);
 
+            // Siapkan data untuk diupdate
+            $updateData = [
+                'course_id'            => $request->course_id,
+                'material_category_id' => $request->material_category_id,
+                'title'                => $request->title,
+                'content'              => $request->content,
+                'order'                => $request->order,
+            ];
+
+            // LOGIKA UPDATE IMAGE
             if ($request->hasFile('image')) {
-                if ($material->image) {
-                    Storage::disk('public')->delete($material->image);
+                $file = $request->file('image');
+                
+                if ($file->isValid()) {
+                    // 1. Hapus image lama dari folder
+                    if ($material->image && Storage::disk('public')->exists($material->image)) {
+                        Storage::disk('public')->delete($material->image);
+                    }
+
+                    // 2. Simpan image baru
+                    // Gunakan store() agar konsisten dengan create
+                    $path = $file->store('materials', 'public');
+                    $updateData['image'] = $path;
                 }
-                $data['image'] = $request->file('image')
-                    ->store('materials', 'public');
             }
 
-            $material->update($data);
+            $material->update($updateData);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Material berhasil diperbarui',
-                'data' => $material
+                'data' => $material->load('category') // Load kategori agar data terbaru ikut terkirim
             ]);
 
-        } catch (ModelNotFoundException $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'error' => 'Material tidak ditemukan'], 404);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Material tidak ditemukan'
-            ], 404);
-
-        } catch (QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal memperbarui material',
-                'message' => 'Terjadi kesalahan pada database'
-            ], 500);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => 'Gagal memperbarui material'
+                'error'   => 'Gagal memperbarui material',
+                'message' => $e->getMessage()
             ], 500);
         }
     }

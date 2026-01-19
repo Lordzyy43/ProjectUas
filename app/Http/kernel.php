@@ -21,7 +21,6 @@ class Kernel extends HttpKernel
     protected $middlewareGroups = [
 
         'api' => [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
@@ -40,10 +39,4 @@ class Kernel extends HttpKernel
         'is_admin' => \App\Http\Middleware\IsAdmin::class,
         'check_enrollment' => \App\Http\Middleware\CheckEnrollment::class,
     ];
-
-    protected $middlewareAliases = [
-    // ... middleware lainnya
-    'check_enrollment' => \App\Http\Middleware\CheckEnrollment::class, // Pastikan path class-nya benar
-];
-    
 }
